@@ -207,6 +207,19 @@
             border: 1px solid #f5c6cb;
         }
 
+        /* Status styling when applied directly to chat-message */
+        .chat-message.status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .chat-message.status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
         /* Name input form styles */
         .name-input-form {
             display: none;
@@ -303,7 +316,7 @@
                 <button class="close-btn" id="closeBtn">&times;</button>
             </div>
             <div class="chat-content">
-                <div class="chat-message">
+                <div class="chat-message" id="welcomeMessage">
                     Hello! Welcome to our website. How can we assist you today?
                 </div>
                 <div class="chat-buttons">
@@ -345,8 +358,6 @@
                         </button>
                     </div>
                 </div>
-
-                <div id="statusMessage"></div>
             </div>
         </div>
     </div>
@@ -360,7 +371,7 @@
                 this.closeBtn = document.getElementById('closeBtn');
                 this.bookBtn = document.getElementById('bookBtn');
                 this.cancelBtn = document.getElementById('cancelBtn');
-                this.statusMessage = document.getElementById('statusMessage');
+                this.welcomeMessage = document.getElementById('welcomeMessage');
                 this.nameInputForm = document.getElementById('nameInputForm');
                 this.customerNameInput = document.getElementById('customerName');
                 this.customerOrganizationInput = document.getElementById('customerOrganization');
@@ -370,7 +381,11 @@
                 this.backBtn = document.getElementById('backBtn');
                 this.chatButtons = document.querySelector('.chat-buttons');
 
+                // Initialize country as unknown, will be detected
+                this.userCountry = 'Unknown';
+
                 this.init();
+                this.detectCountry();
             }
 
             init() {
@@ -421,6 +436,63 @@
                 this.customerOrganizationInput.value = '';
                 this.customerEmailInput.value = '';
                 this.customerMessageInput.value = '';
+            }
+
+            async detectCountry() {
+                try {
+                    // Using a CORS-friendly IP geolocation service
+                    const response = await fetch('https://api.country.is/');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.userCountry = data.country || 'Unknown';
+                        console.log('Detected country:', this.userCountry);
+                        return;
+                    }
+                } catch (error) {
+                    console.log('Primary country detection failed:', error);
+                }
+
+                // Fallback 1: Try another service
+                try {
+                    const response = await fetch('https://ipinfo.io/json?token=');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.userCountry = data.country || 'Unknown';
+                        console.log('Detected country (fallback):', this.userCountry);
+                        return;
+                    }
+                } catch (error) {
+                    console.log('Fallback country detection failed:', error);
+                }
+
+                // Fallback 2: Use timezone-based detection
+                try {
+                    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    // Extract likely country from timezone
+                    const timezoneCountryMap = {
+                        'America/New_York': 'United States',
+                        'America/Los_Angeles': 'United States',
+                        'America/Chicago': 'United States',
+                        'America/Denver': 'United States',
+                        'Europe/London': 'United Kingdom',
+                        'Europe/Paris': 'France',
+                        'Europe/Berlin': 'Germany',
+                        'Europe/Rome': 'Italy',
+                        'Europe/Madrid': 'Spain',
+                        'Asia/Tokyo': 'Japan',
+                        'Asia/Shanghai': 'China',
+                        'Asia/Kolkata': 'India',
+                        'Australia/Sydney': 'Australia',
+                        'America/Toronto': 'Canada',
+                        'America/Mexico_City': 'Mexico'
+                    };
+
+                    this.userCountry = timezoneCountryMap[timezone] || `Timezone: ${timezone}`;
+                    console.log('Detected country from timezone:', this.userCountry);
+                } catch (tzError) {
+                    console.log('Timezone detection failed:', tzError);
+                    this.userCountry = 'Unknown';
+                }
             }
 
             showNameInput() {
@@ -476,7 +548,7 @@
 
                 try {
                     // Make POST request to book appointment
-                    const response = await fetch('https://tacostomps.app.n8n.cloud/webhook-test/084a116f-17ce-4040-8040-34a648db0edf', {
+                    const response = await fetch('https://tacostomps.app.n8n.cloud/webhook/084a116f-17ce-4040-8040-34a648db0edf', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -486,6 +558,7 @@
                             customerOrganization: customerOrganization,
                             customerEmail: customerEmail,
                             customerMessage: customerMessage,
+                            country: this.userCountry,
                             timestamp: new Date().toISOString(),
                             source: 'chat-widget'
                         })
@@ -499,7 +572,7 @@
                             this.closeChat();
                         }, 4000);
                     } else {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        this.showStatus(`Sorry ${customerName}! Taco Stomps is not available at your requested time and date. Please try other dates or times.`, 'error');
                     }
                 } catch (error) {
                     console.error('Booking failed:', error);
@@ -518,11 +591,13 @@
             }
 
             showStatus(message, type) {
-                this.statusMessage.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+                this.welcomeMessage.innerHTML = message;
+                this.welcomeMessage.className = `chat-message status-${type}`;
             }
 
             clearStatus() {
-                this.statusMessage.innerHTML = '';
+                this.welcomeMessage.innerHTML = 'Hello! Welcome to our website. How can we assist you today?';
+                this.welcomeMessage.className = 'chat-message';
             }
         }
 
