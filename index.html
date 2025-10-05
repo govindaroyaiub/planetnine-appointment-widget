@@ -89,6 +89,24 @@
             align-items: center;
         }
 
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .header-title {
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .netherlands-time {
+            font-size: 11px;
+            opacity: 0.8;
+            font-weight: 400;
+            margin-top: 2px;
+        }
+
         .close-btn {
             background: none;
             border: none;
@@ -312,7 +330,10 @@
         <!-- Chat Box -->
         <div class="chat-box" id="chatBox">
             <div class="chat-header">
-                <span>How can we help?</span>
+                <div class="header-content">
+                    <div class="header-title">How can we help?</div>
+                    <div class="netherlands-time" id="netherlandsTime">Netherlands: --:-- --</div>
+                </div>
                 <button class="close-btn" id="closeBtn">&times;</button>
             </div>
             <div class="chat-content">
@@ -345,7 +366,7 @@
                             required>
                     </div>
                     <div class="input-group">
-                        <label class="input-label" for="customerMessage">Message:</label>
+                        <label class="input-label" for="customerMessage">Booking Time & Date:</label>
                         <textarea class="message-textarea" id="customerMessage"
                             placeholder="Example: today at 3 pm or tomorrow at 2 pm" rows="3"></textarea>
                     </div>
@@ -380,12 +401,14 @@
                 this.submitBtn = document.getElementById('submitBtn');
                 this.backBtn = document.getElementById('backBtn');
                 this.chatButtons = document.querySelector('.chat-buttons');
+                this.netherlandsTimeEl = document.getElementById('netherlandsTime');
 
                 // Initialize country as unknown, will be detected
                 this.userCountry = 'Unknown';
 
                 this.init();
                 this.detectCountry();
+                this.startNetherlandsTimeUpdates();
             }
 
             init() {
@@ -495,6 +518,32 @@
                 }
             }
 
+            startNetherlandsTimeUpdates() {
+                // Update immediately
+                this.updateNetherlandsTime();
+
+                // Update every second
+                this.timeInterval = setInterval(() => {
+                    this.updateNetherlandsTime();
+                }, 1000);
+            }
+
+            updateNetherlandsTime() {
+                const now = new Date();
+                const options = {
+                    timeZone: 'Europe/Amsterdam',
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short'
+                };
+
+                const netherlandsTime = now.toLocaleString('en-US', options);
+                this.netherlandsTimeEl.textContent = `Netherlands: ${netherlandsTime}`;
+            }
+
             showNameInput() {
                 this.chatButtons.style.display = 'none';
                 this.nameInputForm.classList.add('active');
@@ -548,7 +597,8 @@
 
                 try {
                     // Make POST request to book appointment
-                    const response = await fetch('https://tacostomps.app.n8n.cloud/webhook/084a116f-17ce-4040-8040-34a648db0edf', {
+                    // const response = await fetch('https://tacostomps.app.n8n.cloud/webhook-test/084a116f-17ce-4040-8040-34a648db0edf', {
+                        const response = await fetch('https://tacostomps.app.n8n.cloud/webhook/084a116f-17ce-4040-8040-34a648db0edf', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -565,14 +615,14 @@
                     });
 
                     if (response.ok) {
-                        this.showStatus(`Thank you ${customerName}! Your appointment booking has been submitted. We'll contact you soon.`, 'success');
+                        this.showStatus(`Thank you ${customerName}! Your booking is confirmed. Please check your email.`, 'success');
 
                         // Auto-close after 4 seconds
                         setTimeout(() => {
                             this.closeChat();
                         }, 4000);
                     } else {
-                        this.showStatus(`Sorry ${customerName}! Taco Stomps is not available at your requested time and date. Please try other dates or times.`, 'error');
+                        this.showStatus(`Sorry ${customerName}! Requested time and date is not available. Please try other dates or times.`, 'error');
                     }
                 } catch (error) {
                     console.error('Booking failed:', error);
@@ -596,7 +646,7 @@
             }
 
             clearStatus() {
-                this.welcomeMessage.innerHTML = 'Hello! Welcome to our website. How can we assist you today?';
+                this.welcomeMessage.innerHTML = 'Hello! Welcome to Planet Nine. Would you like to book an appointment?';
                 this.welcomeMessage.className = 'chat-message';
             }
         }
